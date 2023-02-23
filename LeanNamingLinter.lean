@@ -17,8 +17,12 @@ namespace NamingConvention
   def whitelist : List String := [
     "noConfusion",
     "noConfusionType",
-    "injEq"
+    "injEq",
+    "casesOn",
+    "brecOn",
+    "recOn"
   ]
+
 
   /-- Checks that `name` is in snake_case -/
   def snakeCaseTest (name : String) (reason : String) : MetaM (Option MessageData) := do
@@ -48,13 +52,24 @@ namespace NamingConvention
            ++ m!"it is referenced in lowerCamelCase ({reason}){errors}\n"
 
 
+  /-- Checks whether the passed list contains a non-trailing underscore (`_`)
+      An underscore is considered trailing if it is followed by only characters in [_,] until the end of the string
+   -/
+  def isSnakeCase : List Char → Bool
+    | [] => false
+    | '_' :: as => as.any (fun 
+                            | '_' | ',' => false
+                            | _ => true
+        )
+    | _   :: as => isSnakeCase as
+
   /-- Checks that `name` is in lowerCamelCase, i.e., the first character is lowercase, and there
       are no `_` characters
    -/
   def lowerCamelCaseTest (name : String) (reason : String) : MetaM (Option MessageData) := do
     let chars := name.toList
 
-    if (chars.get! 0).isUpper || chars.contains '_' then
+    if (chars.get! 0).isUpper || isSnakeCase chars then
       return m!"`{name}` should be in lowerCamelCase ({reason})"
     else
       return none
@@ -66,7 +81,7 @@ namespace NamingConvention
   def upperCamelCaseTest (name : String) (reason : String) : MetaM (Option MessageData) := do
     let chars := name.toList
 
-    if (chars.get! 0).isLower || chars.contains '_' then
+    if (chars.get! 0).isLower || isSnakeCase chars then
       return m!"`{name}` should be in UpperCamelCase ({reason})"
     else
       return none
@@ -86,6 +101,11 @@ namespace NamingConvention
       | _ => return none
 
     if whitelist.contains name then
+      return none
+
+    -- If a name starts with `inst` we assume it is a typeclass instance and don't flag it when misnamed
+    -- TODO: proper detection when a definition is actually an instance, rather than relying on this heuristic
+    if name.toList.take 4 == "inst".toList then
       return none
 
     let type ← try
