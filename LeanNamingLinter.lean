@@ -8,6 +8,18 @@ open Std.Tactic.Lint
 namespace NamingConvention
   open Lean
 
+  /-- If a name is part of the whitelist, then it won't be flagged as wrong even if it conflicts with
+      the convention.
+
+      Mostly used for automatically generated definitions that don't fit Mathlibs naming convention
+
+-/
+  def whitelist : List String := [
+    "noConfusion",
+    "noConfusionType",
+    "injEq"
+  ]
+
   /-- Checks that `name` is in snake_case -/
   def snakeCaseTest (name : String) (reason : String) : MetaM (Option MessageData) := do
     let chars := name.toList
@@ -29,11 +41,11 @@ namespace NamingConvention
       if errors.isEmpty then
         return none
       else
-        let errors := String.join <| errors.map fun error => 
+        let errors := String.join <| errors.map fun error =>
           "\n * " ++ String.mk error ++ " should be in lowerCamelCase"
         return m!
           "When something named with UpperCamelCase is part of something named with snake_case,"
-           ++ m!"it is referenced in lowerCamelCase ({reason})\n{errors}"
+           ++ m!"it is referenced in lowerCamelCase ({reason}){errors}\n"
 
 
   /-- Checks that `name` is in lowerCamelCase, i.e., the first character is lowercase, and there
@@ -46,10 +58,10 @@ namespace NamingConvention
       return m!"`{name}` should be in lowerCamelCase ({reason})"
     else
       return none
- 
+
 
   /-- Checks that `name` is in UpperCamelCase, i.e., the first character is Uppercase, and there
-      are no `_` characters 
+      are no `_` characters
     -/
   def upperCamelCaseTest (name : String) (reason : String) : MetaM (Option MessageData) := do
     let chars := name.toList
@@ -73,13 +85,16 @@ namespace NamingConvention
       | .str _ name => pure name
       | _ => return none
 
-    let type ← try 
+    if whitelist.contains name then
+      return none
+
+    let type ← try
       inferType value
     catch _ =>
       return none
     let type ← whnf type
 
-    -- Functions are named the same way as their return values 
+    -- Functions are named the same way as their return values
     -- (e.g. a function of type A → B → C is named as though it is a term of type C
     forallTelescopeReducing type fun _ type => do
       if type.isSort then
@@ -87,7 +102,7 @@ namespace NamingConvention
       else
         let typeOfType ← inferType type
 
-        if typeOfType.isProp then 
+        if typeOfType.isProp then
           snakeCaseTest name "Terms of Props (e.g. proofs, theorem names) are in snake_case"
         else if typeOfType.isType then
           lowerCamelCaseTest name "Terms of Types (most definitions) are in lowerCamelCase"
@@ -117,6 +132,3 @@ def namingConvention : Linter where
   test := namingConventionTest
   noErrorsFound := "No naming convention violations found"
   errorsFound := "Some definitions seem to be inconsistent with the naming convention"
-
-
-#lint only namingConvention
