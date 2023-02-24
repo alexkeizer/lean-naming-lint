@@ -1,18 +1,13 @@
 import Lake
 open Lake DSL
 
-package «lean-naming-linter» {
+package «namingLint» {
   -- add package configuration options here
 }
 
-lean_lib «LeanNamingLinter» {
-  -- add library configuration options here
-}
-
 @[default_target]
-lean_exe «lean-naming-linter» {
-  root := `Main
-}
+lean_lib «NamingLint» 
+
 
 
 require std from git "https://github.com/leanprover/std4" @ "main"

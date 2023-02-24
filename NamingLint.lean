@@ -4,7 +4,6 @@ open Lean (Name FVarId getConstInfo MessageData MonadEnv)
 open Lean.Meta
 open Std.Tactic.Lint
 
-
 namespace NamingConvention
   open Lean
 
